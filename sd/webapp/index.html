@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>light controller</title>
+	<script src="/helper.js" ></script>
+	<script src="/config.js" ></script>
+</head>
+<body>
+	<h2>L0</h2>
+	<input type="checkbox" id="input_L0_enabled"/>
+	<input type="range" id="input_L0_level" min="0"/> <span id="label_L0_level"></span> <br/>
+	<h2>L1</h2>
+	<input type="checkbox" id="input_L1_enabled"/>
+	<input type="color" id="input_L1_color" /> <span id="label_L1_color"></span>
+<script>
+	//inputs
+	var input_L0_enabled = document.getElementById('input_L0_enabled');
+	var input_L0_level = document.getElementById('input_L0_level');
+	var input_L1_enabled = document.getElementById('input_L1_enabled');
+	var input_L1_color = document.getElementById('input_L1_color');
+	//labels
+	var label_L0_level = document.getElementById('label_L0_level');
+	var label_L1_color = document.getElementById('label_L1_color');
+		
+	function loadL0(){
+		$.get(API_L0, (data, status) => {
+			input_L0_enabled.checked = data.enabled;
+			input_L0_level.value = data.level;
+			
+			refreshLabels();
+		});
+	}
+	
+	function loadL1() {
+		$.get(API_L1, (data, status) => {
+			input_L1_enabled.checked = data.enabled;
+			var rgb = '#' + colorToHex(Math.round(data.levelR / LEVEL_MAX_VALUE * 255), Math.round(data.levelG / LEVEL_MAX_VALUE * 255), Math.round(data.levelB / LEVEL_MAX_VALUE * 255));
+			rgb = rgb.toUpperCase();
+			input_L1_color.value = rgb;
+			
+			console.log('RGB: ' + rgb);
+			refreshLabels();
+		});
+	}
+	
+	function saveL0(){
+		var body = {
+			enabled: input_L0_enabled.checked,
+			level: input_L0_level.value
+		};
+		$.post(API_L0, body, (data, status) => {
+			//
+		});
+	}
+	function saveL1() {
+		var rgb = hexToColor(input_L1_color.value);
+		var body = {
+			enabled: input_L1_enabled.checked,
+			levelR: Math.round(rgb.r / 255 * LEVEL_MAX_VALUE),
+			levelG: Math.round(rgb.g / 255 * LEVEL_MAX_VALUE),
+			levelB: Math.round(rgb.b / 255 * LEVEL_MAX_VALUE)
+		};
+		$.post(API_L1, body, (data, status) => {
+			//
+		});
+	}
+	
+	function refreshLabels(){
+		label_L0_level.innerHTML = (parseInt(input_L0_level.value) / LEVEL_MAX_VALUE * 100).toFixed() + '%';
+		label_L1_color.innerHTML = input_L1_color.value;
+	}
+	
+	input_L0_level.max = LEVEL_MAX_VALUE;
+	input_L0_level.addEventListener("change", (ev)=>{
+		saveL0();
+		refreshLabels();
+	});
+	input_L0_enabled.addEventListener("change", (ev)=>{
+		saveL0();
+		refreshLabels();
+	});
+	input_L1_enabled.addEventListener("change", (ev)=>{
+		saveL1();
+		refreshLabels()
+	});
+	input_L1_color.addEventListener("change", (ev)=>{
+		saveL1();
+		refreshLabels()
+	});
+
+	loadL0();
+	loadL1();
+</script>
+</body>
+</html>
