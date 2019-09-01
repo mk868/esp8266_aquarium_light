@@ -16,6 +16,9 @@ static L0Model *L0ModelPtr = nullptr;
 static L1Model *L1ModelPtr = nullptr;
 static std::function<void(void)> onAPIUpdate = nullptr;
 
+static const char* DEFAULT_FILE_IN_DIR = "index.htm"; //FAT file names...
+static const char* WEBAPP_DIR = "webapp"; 
+
 void WebAppBegin(int port){
     if(server != nullptr){
       return;
@@ -80,9 +83,9 @@ void WebAppOnAPIUpdate(std::function<void(void)> cb){
 
 bool loadFromSdCard(String path) {
   String dataType = "text/plain";
-  path = "webapp" + path;
+  path = WEBAPP_DIR + path;
   if (path.endsWith("/")) {
-    path += "index.html";
+    path += DEFAULT_FILE_IN_DIR;
   }
 
   if (path.endsWith(".src")) {
@@ -111,12 +114,14 @@ bool loadFromSdCard(String path) {
 
   File dataFile = SD.open(path.c_str());
   if (dataFile.isDirectory()) {
-    path += "/index.htm";
+    path += DEFAULT_FILE_IN_DIR;
     dataType = "text/html";
     dataFile = SD.open(path.c_str());
   }
 
   if (!dataFile) {
+    Serial.println(String("Path: ") + path + " not found");
+    dataFile.close();
     return false;
   }
 
@@ -152,8 +157,10 @@ static void handleAPI_L0_GET(){
         internalError();
         return; 
     }
+    StaticJsonDocument<500> doc;
+    L0ModelPtr->toJson(doc);
     String out;
-    L0ModelPtr->serialize(out);
+    serializeJson(doc, out);
     server->sendHeader("Access-Control-Allow-Origin", "*");
     server->sendHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
     server->sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -166,7 +173,9 @@ static void handleAPI_L0_SET(){
         return; 
     }
     String body = server->arg("plain");
-    L0ModelPtr->deserialize(body);
+    StaticJsonDocument<500> doc;
+    deserializeJson(doc, body);
+    L0ModelPtr->fromJson(doc);
     if(onAPIUpdate != nullptr){
       onAPIUpdate();
     }
@@ -178,8 +187,10 @@ static void handleAPI_L1_GET(){
         internalError();
         return; 
     }
+    StaticJsonDocument<500> doc;
+    L1ModelPtr->toJson(doc);
     String out;
-    L1ModelPtr->serialize(out);
+    serializeJson(doc, out);
     server->sendHeader("Access-Control-Allow-Origin", "*");
     server->sendHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
     server->sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -192,7 +203,9 @@ static void handleAPI_L1_SET(){
         return;
     }
     String body = server->arg("plain");
-    L1ModelPtr->deserialize(body);
+    StaticJsonDocument<500> doc;
+    deserializeJson(doc, body);
+    L1ModelPtr->fromJson(doc);
     if(onAPIUpdate != nullptr){
       onAPIUpdate();
     }
