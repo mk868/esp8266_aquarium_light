@@ -30,27 +30,6 @@ void WebAppBegin(int port){
     server->on("/api/L1", HTTP_GET, handleAPI_L1_GET);
     server->on("/api/L1", HTTP_POST, handleAPI_L1_SET);
 
-    server->on("/api/L0", HTTP_OPTIONS, []() {
-      server->sendHeader("Access-Control-Allow-Origin", "*");
-      server->sendHeader("Access-Control-Max-Age", "10000");
-      server->sendHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
-      server->sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-      server->send(200, "text/plain", "" );
-    });
-    server->on("/api/L1", HTTP_OPTIONS, []() {
-      server->sendHeader("Access-Control-Allow-Origin", "*");
-      server->sendHeader("Access-Control-Max-Age", "10000");
-      server->sendHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
-      server->sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-      server->send(200, "text/plain", "" );
-    });
-
-
-
-
-
-
-
     server->onNotFound(handleNotFound);
     server->begin();
 }
@@ -161,9 +140,6 @@ static void handleAPI_L0_GET(){
     L0ModelPtr->toJson(doc);
     String out;
     serializeJson(doc, out);
-    server->sendHeader("Access-Control-Allow-Origin", "*");
-    server->sendHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
-    server->sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     server->send(200, "application/json", out);
 }
 
@@ -191,9 +167,6 @@ static void handleAPI_L1_GET(){
     L1ModelPtr->toJson(doc);
     String out;
     serializeJson(doc, out);
-    server->sendHeader("Access-Control-Allow-Origin", "*");
-    server->sendHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
-    server->sendHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     server->send(200, "application/json", out);
 }
 
