@@ -5,6 +5,8 @@
 	"ntpHost": "pool.ntp.org",
     "utcOffset": 7200,
 	
+	"DDNSInit": "http://example.com/initDDNS.php?token=12345&ip=",
+	
 	"turn_on_L0": "8:00:00",
 	"turn_off_L0": "22:00:00"
 }
