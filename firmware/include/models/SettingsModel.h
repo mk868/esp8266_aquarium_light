@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#include "models/BaseModel.h"
+#include <SerializableModel.h>
 
 #ifndef SettingsModel_class_h
 #define SettingsModel_class_h
@@ -16,7 +16,7 @@ class SettingsModelAPEntry {
 
 typedef std::vector<SettingsModelAPEntry*> SettingsModelAPList;
 
-class SettingsModel : public BaseModel {
+class SettingsModel : public SerializableModel {
     public:
         SettingsModel();
         ~SettingsModel();

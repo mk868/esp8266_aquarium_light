@@ -1,11 +1,11 @@
 #include <Arduino.h>
 
-#include "models/BaseModel.h"
+#include <SerializableModel.h>
 
 #ifndef L1Model_class_h
 #define L1Model_class_h
 
-class L1Model : public BaseModel {
+class L1Model : public SerializableModel {
     public:
         L1Model();
         ~L1Model();

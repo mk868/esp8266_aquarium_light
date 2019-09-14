@@ -20,3 +20,5 @@ const long WAIT_FOR_STATE_SAVE = 5 * 1000;//ms
 const char* SETTINGS_FILE = "/SETTIN~1.JSO"; //FAT names...
 const char* L0_FILE = "/L0";
 const char* L1_FILE = "/L1";
+const char* L0_NIGHT_FILE = "/L0.n";
+const char* L1_NIGHT_FILE = "/L1.n";

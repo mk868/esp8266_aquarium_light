@@ -12,18 +12,24 @@
 #include <ArduinoJson.h>
 
 #include "config.h"
-#include "webapp.h"
 
 #include "models/L0Model.h"
 #include "models/L1Model.h"
 #include "models/SettingsModel.h"
 
+#include "SDSerializer.h"
+
 #include "SmoothTransition.h"
+#include "SDWebApp.h"
+#include "ApiWebApp.h"
 
 ESP8266WiFiMulti wifiMulti;
+ESP8266WebServer webServer;
 
-L0Model l0;
-L1Model l1;
+L0Model l0DayMode;
+L1Model l1DayMode;
+L0Model l0NightMode;
+L1Model l1NightMode;
 SettingsModel settings;
 
 SmoothTransition l0Value(ANIMATION_SPEED, PWMRANGE);
@@ -42,35 +48,24 @@ bool networkActionsInited = false;
 
 void makeStateSave()
 {
-    StaticJsonDocument<500> doc;
-
-    if (SD.exists(L0_FILE))
-    {
-        SD.remove(L0_FILE);
-    }
-    File fileL0 = SD.open(L0_FILE, FILE_WRITE);
-    l0.toJson(doc);
-    serializeJson(doc, fileL0);
-    fileL0.close();
-
-    if (SD.exists(L1_FILE))
-    {
-        SD.remove(L1_FILE);
-    }
-    File fileL1 = SD.open(L1_FILE, FILE_WRITE);
-    l1.toJson(doc);
-    serializeJson(doc, fileL1);
-    fileL1.close();
+    SDSerializer sdSerializer;
+    sdSerializer.save(L0_FILE, &l0DayMode);
+    sdSerializer.save(L1_FILE, &l1DayMode);
+    sdSerializer.save(L0_NIGHT_FILE, &l0NightMode);
+    sdSerializer.save(L1_NIGHT_FILE, &l1NightMode);
 
     Serial.println("Current LED State saved on the SD card");
 }
 
 void reloadStates()
 {
+    L0Model *l0Model = nightMode ? &l0NightMode : &l0DayMode;
+    L1Model *l1Model = nightMode ? &l1NightMode : &l1DayMode;
+
     // L0
-    if (l0.enabled)
+    if (l0Model->enabled)
     {
-        l0Value.setTargetValue(PWMRANGE - l0.level);
+        l0Value.setTargetValue(PWMRANGE - l0Model->level);
     }
     else
     {
@@ -78,11 +73,11 @@ void reloadStates()
     }
 
     // L1
-    if (l1.enabled)
+    if (l1Model->enabled)
     {
-        l1RValue.setTargetValue(PWMRANGE - l1.levelR);
-        l1GValue.setTargetValue(PWMRANGE - l1.levelG);
-        l1BValue.setTargetValue(PWMRANGE - l1.levelB);
+        l1RValue.setTargetValue(PWMRANGE - l1Model->levelR);
+        l1GValue.setTargetValue(PWMRANGE - l1Model->levelG);
+        l1BValue.setTargetValue(PWMRANGE - l1Model->levelB);
     }
     else
     {
@@ -128,36 +123,14 @@ void initSD()
     }
 }
 
-void loadModelFromFile(JsonDocument *doc, const char *path)
-{
-    Serial.println(String("Loading file: ") + path);
-    if (!SD.exists(path))
-    {
-        Serial.println("File doesn't exist");
-        return;
-    }
-    File file = SD.open(path, FILE_READ);
-    DeserializationError error = deserializeJson(*doc, file);
-    file.close();
-    if (error)
-    {
-        Serial.print("Failed to read file: ");
-        Serial.println(path);
-        Serial.print("JSON Error: ");
-        Serial.println(error.c_str());
-        return;
-    }
-}
-
 void loadSettings()
 {
-    StaticJsonDocument<800> doc;
-    loadModelFromFile(&doc, SETTINGS_FILE);
-    settings.fromJson(doc);
-    loadModelFromFile(&doc, L0_FILE);
-    l0.fromJson(doc);
-    loadModelFromFile(&doc, L1_FILE);
-    l1.fromJson(doc);
+    SDSerializer sdSerializer(800);
+    sdSerializer.load(SETTINGS_FILE, &settings);
+    sdSerializer.load(L0_FILE, &l0DayMode);
+    sdSerializer.load(L1_FILE, &l1DayMode);
+    sdSerializer.load(L0_NIGHT_FILE, &l0NightMode);
+    sdSerializer.load(L1_NIGHT_FILE, &l1NightMode);
 }
 
 void initWiFi()
@@ -173,10 +146,13 @@ void initWiFi()
 
 void initWebApp()
 {
-    WebAppBegin(80);
-    WebAppSetL0Model(&l0);
-    WebAppSetL1Model(&l1);
-    WebAppOnAPIUpdate(updateFromWeb);
+    ApiWebAppBegin(&webServer);
+    ApiWebAppAddModelApi("/api/L0", &l0DayMode, updateFromWeb);
+    ApiWebAppAddModelApi("/api/L1", &l1DayMode, updateFromWeb);
+    ApiWebAppAddModelApi("/api/L0.N", &l0NightMode, updateFromWeb);
+    ApiWebAppAddModelApi("/api/L1.N", &l1NightMode, updateFromWeb);
+    SDWebAppBegin(&webServer, "webapp");
+    webServer.begin(80);
 }
 
 void initIO()
@@ -203,7 +179,6 @@ void initDDNS()
     }
     int httpCode = http.GET();
     String payload = http.getString();
-    Serial.println(payload);
     Serial.println("init DDNS result: " + payload + " code: " + httpCode);
 
     http.end();
@@ -248,8 +223,7 @@ void checkNightMode()
         Serial.println(turnOffDate);
         Serial.print("turnOnDate: ");
         Serial.println(turnOnDate);
-
-        l0.enabled = !nightMode;
+        
         reloadStates();
     }
 }
@@ -283,6 +257,7 @@ int16_t t = 0;
 void loop()
 {
     updateGPIO();
+    webServer.handleClient();
 
     if (wifiMulti.run() != WL_CONNECTED)
     {
@@ -305,7 +280,6 @@ void loop()
         networkActionsInited = true;
     }
 
-    WebAppLoop();
     timeClient->update();
     checkNightMode();
     saveStatesToSD();
