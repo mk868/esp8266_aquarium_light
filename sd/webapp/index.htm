@@ -5,15 +5,31 @@
 	<title>light controller</title>
 	<script src="/helper.js" ></script>
 	<script src="/config.js" ></script>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<style>
+	html{
+		background: #EEEEEE;
+	}
+	#input_L0_level{
+		width:100%;
+		height:50px;
+	}
+	#input_L1_color{
+		width:100%;
+		height:50px;
+	}
+	
+	</style>
 </head>
 <body>
-	<h2>L0</h2>
-	<input type="checkbox" id="input_L0_enabled"/>
-	<input type="range" id="input_L0_level" min="0"/> <span id="label_L0_level"></span> <br/>
-	<h2>L1</h2>
-	<input type="checkbox" id="input_L1_enabled"/>
+	<h2><label><input type="checkbox" id="input_L0_enabled"/> White Light</label></h2>
+	<input type="range" id="input_L0_level" min="0"/><br/> <span id="label_L0_level"></span>
+	<h2><label><input type="checkbox" id="input_L1_enabled"/> RGB Light</label></h2>
+	
 	<input type="color" id="input_L1_color" /> <span id="label_L1_color"></span>
 <script>
+	var postAjaxLoading = false;
+
 	//inputs
 	var input_L0_enabled = document.getElementById('input_L0_enabled');
 	var input_L0_level = document.getElementById('input_L0_level');
@@ -76,17 +92,23 @@
 		saveL0();
 		refreshLabels();
 	});
+	input_L0_level.addEventListener("input", (ev)=>{
+		refreshLabels();
+	});
 	input_L0_enabled.addEventListener("change", (ev)=>{
 		saveL0();
 		refreshLabels();
 	});
 	input_L1_enabled.addEventListener("change", (ev)=>{
 		saveL1();
-		refreshLabels()
+		refreshLabels();
 	});
 	input_L1_color.addEventListener("change", (ev)=>{
 		saveL1();
-		refreshLabels()
+		refreshLabels();
+	});
+	input_L1_color.addEventListener("input", (ev)=>{
+		refreshLabels();
 	});
 
 	loadL0();

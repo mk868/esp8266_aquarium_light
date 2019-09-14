@@ -1,6 +1,10 @@
 #include "models/L0Model.h"
 
-#include <ArduinoJson.h>
+L0Model::L0Model(){
+}
+
+L0Model::~L0Model(){
+}
 
 void L0Model::toJson(JsonDocument& doc){
     doc["enabled"] = this->enabled;

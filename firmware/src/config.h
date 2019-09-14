@@ -1,12 +1,14 @@
 #include <pins_arduino.h>
 
 //led strip 0 - white
-const int PIN_L0 = D0;
+const int PIN_L0 = D1;
 
 //led strip 1 - RGB
-const int PIN_L1_R = D1;
-const int PIN_L1_G = D2;
-const int PIN_L1_B = D3;
+const int PIN_L1_R = D2;
+const int PIN_L1_G = D3;
+const int PIN_L1_B = D4;
+
+const int ANIMATION_SPEED = 400;
 
 //SD
 const int PIN_CS = D8;

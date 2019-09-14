@@ -136,6 +136,7 @@ static void handleAPI_L0_GET(){
         internalError();
         return; 
     }
+    Serial.println("GET /api/L0");
     StaticJsonDocument<500> doc;
     L0ModelPtr->toJson(doc);
     String out;
@@ -148,6 +149,7 @@ static void handleAPI_L0_SET(){
         internalError();
         return; 
     }
+    Serial.println("POST /api/L0");
     String body = server->arg("plain");
     StaticJsonDocument<500> doc;
     deserializeJson(doc, body);
@@ -163,6 +165,7 @@ static void handleAPI_L1_GET(){
         internalError();
         return; 
     }
+    Serial.println("GET /api/L1");
     StaticJsonDocument<500> doc;
     L1ModelPtr->toJson(doc);
     String out;
@@ -175,6 +178,7 @@ static void handleAPI_L1_SET(){
         internalError();
         return;
     }
+    Serial.println("POST /api/L1");
     String body = server->arg("plain");
     StaticJsonDocument<500> doc;
     deserializeJson(doc, body);

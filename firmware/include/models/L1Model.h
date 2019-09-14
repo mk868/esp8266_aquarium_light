@@ -7,6 +7,9 @@
 
 class L1Model : public BaseModel {
     public:
+        L1Model();
+        ~L1Model();
+
         bool enabled;
         int levelR;
         int levelG;
