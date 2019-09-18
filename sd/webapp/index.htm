@@ -1,118 +1,110 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<meta charset="UTF-8">
-	<title>light controller</title>
-	<script src="/helper.js" ></script>
-	<script src="/config.js" ></script>
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<style>
-	html{
-		background: #EEEEEE;
-	}
-	#input_L0_level{
-		width:100%;
-		height:50px;
-	}
-	#input_L1_color{
-		width:100%;
-		height:50px;
-	}
+	<meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 	
-	</style>
+	<title>light controller</title>
+	
+	<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/axios@0.12.0/dist/axios.min.js"></script>
+	
+	<script src="/config.js" ></script>
+	<script src="/scripts.js" ></script>
+	
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 </head>
 <body>
-	<h2><label><input type="checkbox" id="input_L0_enabled"/> White Light</label></h2>
-	<input type="range" id="input_L0_level" min="0"/><br/> <span id="label_L0_level"></span>
-	<h2><label><input type="checkbox" id="input_L1_enabled"/> RGB Light</label></h2>
+	<div id="app">    
+		<ul class="nav nav-tabs" id="navTab" role="tablist">
+			<li class="nav-item">
+				<a class="nav-link" :class="{ active: tab == 'day-mode' }" @click="tab='day-mode'" href="#day-mode">Day Mode</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" :class="{ active: tab == 'night-mode' }" @click="tab='night-mode'" href="#night-mode">Night Mode</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" :class="{ active: tab == 'settings' }" @click="tab='settings'" href="#settings">Settings</a>
+			</li>
+			<li class="nav-item">
+				<a v-if="sendingData > 0" class="nav-link disabled" href="#" tabindex="-1">...</a>
+			</li>
+		</ul>
+		<div class="tab-content">
+			<div class="tab-pane fade" :class="{ active: tab == 'day-mode', show: tab == 'day-mode'}">
+				<module-enabled
+					@change="day_L0_save"
+					:enabled.sync="day_L0_enabled"
+					text="White Light">
+				</module-enabled>
+				<level-input
+					@change="day_L0_save"
+					:value.sync="day_L0_level"
+					max="1023">
+				</level-input>
+				<module-enabled
+					@change="day_L1_save"
+					:enabled.sync="day_L1_enabled"
+					text="RGB Light">
+				</module-enabled>
+				<color-input
+					@change="day_L1_save"
+					:color.sync="day_L1_color">
+				</color-input>
+			</div>
+			<div class="tab-pane fade" :class="{ active: tab == 'night-mode', show: tab == 'night-mode'}">
+				<module-enabled
+					@change="night_L0_save"
+					:enabled.sync="night_L0_enabled"
+					text="White Light">
+				</module-enabled>
+				<level-input
+					@change="night_L0_save"
+					:value.sync="night_L0_level"
+					max="1023">
+				</level-input>
+				<module-enabled
+					@change="night_L1_save"
+					:enabled.sync="night_L1_enabled"
+					text="RGB Light">
+				</module-enabled>
+				<color-input
+					@change="night_L1_save"
+					:color.sync="night_L1_color">
+				</color-input>
+			</div>
+			<div class="tab-pane fade" :class="{ active: tab == 'settings', show: tab == 'settings'}">
+				<h2>Night mode</h2>
+				<div class="form-group">
+					<div class="form-check form-check-inline">
+					  <input class="form-check-input" type="radio" name="night_mode_enabled" id="modeTypeAuto" value="0" v-model="night_mode_enabled">
+					  <label class="form-check-label" for="modeTypeAuto">auto</label>
+					</div>
+					<div class="form-check form-check-inline">
+					  <input class="form-check-input" type="radio" name="night_mode_enabled" id="modeTypeOn" value="1" v-model="night_mode_enabled">
+					  <label class="form-check-label" for="modeTypeOn">on</label>
+					</div>
+					<div class="form-check form-check-inline">
+					  <input class="form-check-input" type="radio" name="night_mode_enabled" id="modeTypeOff" value="2" v-model="night_mode_enabled">
+					  <label class="form-check-label" for="modeTypeOff">off</label>
+					</div>
+				</div>
+				
+				<div class="form-group">
+					<label for="turn_on_nightMode">Start night mode at:</label>
+					<input type="time" class="form-control" id="turn_on_nightMode" v-model="night_mode_start"/>
+				</div>
+				
+				<div class="form-group">
+					<label for="turn_off_nightMode">End night mode at:</label>
+					<input type="time" class="form-control" id="turn_off_nightMode" v-model="night_mode_end"/>
+				</div>
+				
+				<button type="submit" class="btn btn-primary" @click="settings_save">Save</button>
+			</div>
+		</div>
+	</div>
 	
-	<input type="color" id="input_L1_color" /> <span id="label_L1_color"></span>
-<script>
-	var postAjaxLoading = false;
-
-	//inputs
-	var input_L0_enabled = document.getElementById('input_L0_enabled');
-	var input_L0_level = document.getElementById('input_L0_level');
-	var input_L1_enabled = document.getElementById('input_L1_enabled');
-	var input_L1_color = document.getElementById('input_L1_color');
-	//labels
-	var label_L0_level = document.getElementById('label_L0_level');
-	var label_L1_color = document.getElementById('label_L1_color');
-		
-	function loadL0(){
-		$.get(API_L0, (data, status) => {
-			input_L0_enabled.checked = data.enabled;
-			input_L0_level.value = data.level;
-			
-			refreshLabels();
-		});
-	}
-	
-	function loadL1() {
-		$.get(API_L1, (data, status) => {
-			input_L1_enabled.checked = data.enabled;
-			var rgb = '#' + colorToHex(Math.round(data.levelR / LEVEL_MAX_VALUE * 255), Math.round(data.levelG / LEVEL_MAX_VALUE * 255), Math.round(data.levelB / LEVEL_MAX_VALUE * 255));
-			rgb = rgb.toUpperCase();
-			input_L1_color.value = rgb;
-			
-			console.log('RGB: ' + rgb);
-			refreshLabels();
-		});
-	}
-	
-	function saveL0(){
-		var body = {
-			enabled: input_L0_enabled.checked,
-			level: input_L0_level.value
-		};
-		$.post(API_L0, body, (data, status) => {
-			//
-		});
-	}
-	function saveL1() {
-		var rgb = hexToColor(input_L1_color.value);
-		var body = {
-			enabled: input_L1_enabled.checked,
-			levelR: Math.round(rgb.r / 255 * LEVEL_MAX_VALUE),
-			levelG: Math.round(rgb.g / 255 * LEVEL_MAX_VALUE),
-			levelB: Math.round(rgb.b / 255 * LEVEL_MAX_VALUE)
-		};
-		$.post(API_L1, body, (data, status) => {
-			//
-		});
-	}
-	
-	function refreshLabels(){
-		label_L0_level.innerHTML = (parseInt(input_L0_level.value) / LEVEL_MAX_VALUE * 100).toFixed() + '%';
-		label_L1_color.innerHTML = input_L1_color.value;
-	}
-	
-	input_L0_level.max = LEVEL_MAX_VALUE;
-	input_L0_level.addEventListener("change", (ev)=>{
-		saveL0();
-		refreshLabels();
-	});
-	input_L0_level.addEventListener("input", (ev)=>{
-		refreshLabels();
-	});
-	input_L0_enabled.addEventListener("change", (ev)=>{
-		saveL0();
-		refreshLabels();
-	});
-	input_L1_enabled.addEventListener("change", (ev)=>{
-		saveL1();
-		refreshLabels();
-	});
-	input_L1_color.addEventListener("change", (ev)=>{
-		saveL1();
-		refreshLabels();
-	});
-	input_L1_color.addEventListener("input", (ev)=>{
-		refreshLabels();
-	});
-
-	loadL0();
-	loadL1();
-</script>
+	<script src="index.js"></script>
 </body>
 </html>

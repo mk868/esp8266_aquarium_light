@@ -5,5 +5,5 @@
 
 #include <SerializableModel.h>
 
-void ApiWebAppBegin(ESP8266WebServer* webServer);
-void ApiWebAppAddModelApi(const char* path, SerializableModel* model, std::function<void(void)> afterUpdate);
+void ApiWebAppBegin(ESP8266WebServer *webServer);
+void ApiWebAppAddModelApi(const char *path, SerializableModel *model, std::function<void(void)> afterUpdate);

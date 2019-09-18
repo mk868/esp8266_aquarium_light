@@ -15,6 +15,7 @@
 
 #include "models/L0Model.h"
 #include "models/L1Model.h"
+#include "models/CoreSettingsModel.h"
 #include "models/SettingsModel.h"
 
 #include "SDSerializer.h"
@@ -30,7 +31,8 @@ L0Model l0DayMode;
 L1Model l1DayMode;
 L0Model l0NightMode;
 L1Model l1NightMode;
-SettingsModel settings;
+SettingsModel settings; // read only
+CoreSettingsModel coreSettings; // read only
 
 SmoothTransition l0Value(ANIMATION_SPEED, PWMRANGE);
 SmoothTransition l1RValue(ANIMATION_SPEED, PWMRANGE);
@@ -40,8 +42,7 @@ SmoothTransition l1BValue(ANIMATION_SPEED, PWMRANGE);
 WiFiUDP ntpUDP;
 NTPClient *timeClient;
 
-bool nightMode;
-bool timeJobInited = false;
+bool nightMode = true; // by default enabled
 unsigned long makeStateSaveAt = 0;
 
 bool networkActionsInited = false;
@@ -49,10 +50,11 @@ bool networkActionsInited = false;
 void makeStateSave()
 {
     SDSerializer sdSerializer;
-    sdSerializer.save(L0_FILE, &l0DayMode);
-    sdSerializer.save(L1_FILE, &l1DayMode);
-    sdSerializer.save(L0_NIGHT_FILE, &l0NightMode);
-    sdSerializer.save(L1_NIGHT_FILE, &l1NightMode);
+    sdSerializer.save(SETTINGS_FILE, &settings);
+    sdSerializer.save(DAY_L0_FILE, &l0DayMode);
+    sdSerializer.save(DAY_L1_FILE, &l1DayMode);
+    sdSerializer.save(NIGHT_L0_FILE, &l0NightMode);
+    sdSerializer.save(NIGHT_L1_FILE, &l1NightMode);
 
     Serial.println("Current LED State saved on the SD card");
 }
@@ -126,17 +128,18 @@ void initSD()
 void loadSettings()
 {
     SDSerializer sdSerializer(800);
+    sdSerializer.load(CORE_SETTINGS_FILE, &coreSettings);
     sdSerializer.load(SETTINGS_FILE, &settings);
-    sdSerializer.load(L0_FILE, &l0DayMode);
-    sdSerializer.load(L1_FILE, &l1DayMode);
-    sdSerializer.load(L0_NIGHT_FILE, &l0NightMode);
-    sdSerializer.load(L1_NIGHT_FILE, &l1NightMode);
+    sdSerializer.load(DAY_L0_FILE, &l0DayMode);
+    sdSerializer.load(DAY_L1_FILE, &l1DayMode);
+    sdSerializer.load(NIGHT_L0_FILE, &l0NightMode);
+    sdSerializer.load(NIGHT_L1_FILE, &l1NightMode);
 }
 
 void initWiFi()
 {
     WiFi.mode(WIFI_STA);
-    for (auto entry : settings.APlist)
+    for (auto entry : coreSettings.APlist)
     {
         wifiMulti.addAP(entry->ssid, entry->password);
     }
@@ -147,10 +150,11 @@ void initWiFi()
 void initWebApp()
 {
     ApiWebAppBegin(&webServer);
-    ApiWebAppAddModelApi("/api/L0", &l0DayMode, updateFromWeb);
-    ApiWebAppAddModelApi("/api/L1", &l1DayMode, updateFromWeb);
-    ApiWebAppAddModelApi("/api/L0.N", &l0NightMode, updateFromWeb);
-    ApiWebAppAddModelApi("/api/L1.N", &l1NightMode, updateFromWeb);
+    ApiWebAppAddModelApi("/api/day/L0", &l0DayMode, updateFromWeb);
+    ApiWebAppAddModelApi("/api/day/L1", &l1DayMode, updateFromWeb);
+    ApiWebAppAddModelApi("/api/night/L0", &l0NightMode, updateFromWeb);
+    ApiWebAppAddModelApi("/api/night/L1", &l1NightMode, updateFromWeb);
+    ApiWebAppAddModelApi("/api/settings", &settings, updateFromWeb);
     SDWebAppBegin(&webServer, "webapp");
     webServer.begin(80);
 }
@@ -170,7 +174,7 @@ void initIO()
 void initDDNS()
 {
     HTTPClient http;
-    String url = String(settings.DDNSInitUrl) + WiFi.localIP().toString();
+    String url = String(coreSettings.DDNSInitUrl) + WiFi.localIP().toString();
 
     if (!http.begin(url))
     { // HTTP
@@ -188,41 +192,70 @@ long longDate(String date)
 {
     String tmp = String(date);
     tmp.replace(":", "");
+    if(tmp.length() < 5){ // hh:mm
+        tmp += "00"; // add :ss
+    }
     return tmp.toInt();
 }
 
 void initTimeJob()
 {
-    timeClient = new NTPClient(ntpUDP, settings.ntpHost, settings.utcOffset);
+    timeClient = new NTPClient(ntpUDP, coreSettings.ntpHost, coreSettings.utcOffset);
     timeClient->begin();
 }
 
 void checkNightMode()
 {
+    //On
+    if(settings.night_mode_enabled == On){
+        if(!nightMode){
+            nightMode = true;
+            Serial.println("[settings] night mode = true");
+            
+            reloadStates();
+        }
+        return;
+    }
+
+    //Off
+    if(settings.night_mode_enabled == Off){
+        if(nightMode){
+            nightMode = false;
+            Serial.println("[settings] night mode = false");
+            
+            reloadStates();
+        }
+        return;
+    }
+
+    if(!networkActionsInited){
+        return;
+    }
+
+    //Auto
     long now = longDate(timeClient->getFormattedTime());
-    long turnOnDate = longDate(settings.turn_on_L0);
-    long turnOffDate = longDate(settings.turn_off_L0);
+    long startTime = longDate(settings.night_mode_start);
+    long endTime = longDate(settings.night_mode_end);
     bool nightModeNow = false;
-    if ((turnOnDate < turnOffDate) && ((now >= turnOffDate) || (now < turnOnDate)))
+    if ((startTime > endTime) && ((now <= endTime) || (now >= startTime)))
     { // Contains midnight
         nightModeNow = true;
     }
-    if ((turnOnDate > turnOffDate) && (now >= turnOffDate) && (now < turnOnDate))
+    if ((startTime < endTime) && (now <= endTime) && (now >= startTime))
     {
         nightModeNow = true;
     }
 
-    if (nightModeNow != nightMode || !timeJobInited)
+    if (nightModeNow != nightMode)
     {
-        timeJobInited = true;
         nightMode = nightModeNow;
-        Serial.println(String("night mode status changed; night mode: ") + nightMode);
-        Serial.print("now: ");
-        Serial.println(now);
-        Serial.print("turnOffDate: ");
-        Serial.println(turnOffDate);
-        Serial.print("turnOnDate: ");
-        Serial.println(turnOnDate);
+        Serial.println(String("[auto] night mode = ") + nightMode);
+        Serial.print(" now: ");
+        Serial.print(now);
+        Serial.print(" startTime: ");
+        Serial.print(startTime);
+        Serial.print(" endTime: ");
+        Serial.println(endTime);
         
         reloadStates();
     }
@@ -257,7 +290,6 @@ int16_t t = 0;
 void loop()
 {
     updateGPIO();
-    webServer.handleClient();
 
     if (wifiMulti.run() != WL_CONNECTED)
     {
@@ -280,6 +312,7 @@ void loop()
         networkActionsInited = true;
     }
 
+    webServer.handleClient();
     timeClient->update();
     checkNightMode();
     saveStatesToSD();

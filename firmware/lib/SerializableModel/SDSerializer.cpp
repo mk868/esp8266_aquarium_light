@@ -29,7 +29,7 @@ bool SDSerializer::load(String path, SerializableModel *model)
     return true;
 }
 
-bool SDSerializer::save(String path, SerializableModel *model)
+bool SDSerializer::save(String path, SerializableModel *model, bool pretty)
 {
     DynamicJsonDocument doc(this->bufferSize);
     if (SD.exists(path))
@@ -38,7 +38,14 @@ bool SDSerializer::save(String path, SerializableModel *model)
     }
     File file = SD.open(path, FILE_WRITE);
     model->toJson(doc);
-    serializeJson(doc, file);
+    if (pretty)
+    {
+        serializeJsonPretty(doc, file);
+    }
+    else
+    {
+        serializeJson(doc, file);
+    }
     file.close();
     return true;
 }
