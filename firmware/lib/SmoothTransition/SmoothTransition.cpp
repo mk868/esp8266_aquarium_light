@@ -2,43 +2,51 @@
 
 #include <Arduino.h>
 
-SmoothTransition::SmoothTransition(int speed, int defaultValue)
+void SmoothTransition::begin(uint8_t pin, int initValue)
 {
-    this->startValue = defaultValue;
-    this->targetValue = defaultValue;
-    this->currentValue = defaultValue;
+    this->pin = pin;
+    this->startValue = initValue;
+    this->targetValue = initValue;
+    this->currentValue = initValue;
 
-    this->speed = speed;
+    pinMode(pin, OUTPUT);
+    analogWrite(pin, initValue);
 }
 
-SmoothTransition::~SmoothTransition()
-{
-}
-
-void SmoothTransition::setTargetValue(int targetValue)
+void SmoothTransition::setValue(int targetValue, int speed)
 {
     this->targetValue = targetValue;
     this->startValue = this->currentValue;
 
-    this->transitionStarted = millis();
+    this->transitionStartTime = millis();
+    this->transitionEndTime = this->transitionStartTime + speed;
 }
 
 int SmoothTransition::getCurrentValue()
 {
     unsigned long now = millis();
 
-    if (now > transitionStarted + speed)
+    if (now > this->transitionEndTime)
     {
         this->currentValue = this->targetValue;
         return this->currentValue;
     }
 
     int deltaValue = this->targetValue - this->startValue;
-    int elapsedTime = now - transitionStarted;
+    int deltaTime = this->transitionEndTime - this->transitionStartTime;
+    int elapsedTime = now - this->transitionStartTime;
 
-    this->currentValue = this->startValue + deltaValue * elapsedTime / this->speed;
+    this->currentValue = this->startValue + deltaValue * elapsedTime / deltaTime;
 
     return this->currentValue;
+}
+
+void SmoothTransition::update()
+{
+    if (!this->isFinished())
+    {
+        analogWrite(this->pin, this->getCurrentValue());
+    }
 }
 
 bool SmoothTransition::isFinished()

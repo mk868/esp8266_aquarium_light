@@ -44,8 +44,6 @@ void CoreSettingsModel::toJson(JsonDocument &doc)
     }
 
     doc["ntpHost"] = this->ntpHost;
-    doc["utcOffset"] = this->utcOffset;
-
     doc["DDNSInitUrl"] = this->DDNSInitUrl;
 };
 
@@ -64,8 +62,6 @@ void CoreSettingsModel::fromJson(JsonDocument &doc)
     }
 
     strncpy(this->ntpHost, doc["ntpHost"], sizeof(this->ntpHost));
-    this->utcOffset = doc["utcOffset"];
-
     strncpy(this->DDNSInitUrl, doc["DDNSInitUrl"], sizeof(this->DDNSInitUrl));
 }
 

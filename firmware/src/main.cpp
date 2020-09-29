@@ -4,12 +4,11 @@
 #include <WiFiClient.h>
 #include <SPI.h>
 #include <SD.h>
-#include <WiFiUdp.h>
-#include <NTPClient.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFiMulti.h>
 
 #include <ArduinoJson.h>
+#include <RTClib.h>
 
 #include "config.h"
 
@@ -24,6 +23,8 @@
 #include "SDWebApp.h"
 #include "ApiWebApp.h"
 
+RTC_DS3231 rtc;
+
 ESP8266WiFiMulti wifiMulti;
 ESP8266WebServer webServer;
 
@@ -31,16 +32,13 @@ L0Model l0DayMode;
 L1Model l1DayMode;
 L0Model l0NightMode;
 L1Model l1NightMode;
-SettingsModel settings; // read only
+SettingsModel settings;         // read only
 CoreSettingsModel coreSettings; // read only
 
-SmoothTransition l0Value(ANIMATION_SPEED, PWMRANGE);
-SmoothTransition l1RValue(ANIMATION_SPEED, PWMRANGE);
-SmoothTransition l1GValue(ANIMATION_SPEED, PWMRANGE);
-SmoothTransition l1BValue(ANIMATION_SPEED, PWMRANGE);
-
-WiFiUDP ntpUDP;
-NTPClient *timeClient;
+SmoothTransition l0Value;
+SmoothTransition l1RValue;
+SmoothTransition l1GValue;
+SmoothTransition l1BValue;
 
 bool nightMode = true; // by default enabled
 unsigned long makeStateSaveAt = 0;
@@ -67,25 +65,25 @@ void reloadStates()
     // L0
     if (l0Model->enabled)
     {
-        l0Value.setTargetValue(PWMRANGE - l0Model->level);
+        l0Value.setValue(PWMRANGE - l0Model->level, ANIMATION_SPEED);
     }
     else
     {
-        l0Value.setTargetValue(PWMRANGE);
+        l0Value.setValue(PWMRANGE, ANIMATION_SPEED);
     }
 
     // L1
     if (l1Model->enabled)
     {
-        l1RValue.setTargetValue(PWMRANGE - l1Model->levelR);
-        l1GValue.setTargetValue(PWMRANGE - l1Model->levelG);
-        l1BValue.setTargetValue(PWMRANGE - l1Model->levelB);
+        l1RValue.setValue(PWMRANGE - l1Model->levelR, ANIMATION_SPEED);
+        l1GValue.setValue(PWMRANGE - l1Model->levelG, ANIMATION_SPEED);
+        l1BValue.setValue(PWMRANGE - l1Model->levelB, ANIMATION_SPEED);
     }
     else
     {
-        l1RValue.setTargetValue(PWMRANGE);
-        l1GValue.setTargetValue(PWMRANGE);
-        l1BValue.setTargetValue(PWMRANGE);
+        l1RValue.setValue(PWMRANGE, ANIMATION_SPEED);
+        l1GValue.setValue(PWMRANGE, ANIMATION_SPEED);
+        l1BValue.setValue(PWMRANGE, ANIMATION_SPEED);
     }
 
     Serial.println("GPIO state update");
@@ -93,22 +91,10 @@ void reloadStates()
 
 void updateGPIO()
 {
-    if (!l0Value.isFinished())
-    {
-        analogWrite(PIN_L0, l0Value.getCurrentValue());
-    }
-    if (!l1RValue.isFinished())
-    {
-        analogWrite(PIN_L1_R, l1RValue.getCurrentValue());
-    }
-    if (!l1GValue.isFinished())
-    {
-        analogWrite(PIN_L1_G, l1GValue.getCurrentValue());
-    }
-    if (!l1BValue.isFinished())
-    {
-        analogWrite(PIN_L1_B, l1BValue.getCurrentValue());
-    }
+    l0Value.update();
+    l1RValue.update();
+    l1GValue.update();
+    l1BValue.update();
 }
 
 void updateFromWeb()
@@ -122,6 +108,9 @@ void initSD()
     if (!SD.begin(PIN_CS))
     {
         Serial.println("Load SD card error!");
+        while (true)
+        {
+        }
     }
 }
 
@@ -161,14 +150,10 @@ void initWebApp()
 
 void initIO()
 {
-    pinMode(PIN_L0, OUTPUT);
-    pinMode(PIN_L1_R, OUTPUT);
-    pinMode(PIN_L1_G, OUTPUT);
-    pinMode(PIN_L1_B, OUTPUT);
-    digitalWrite(PIN_L0, HIGH);
-    digitalWrite(PIN_L1_R, HIGH);
-    digitalWrite(PIN_L1_G, HIGH);
-    digitalWrite(PIN_L1_B, HIGH);
+    l0Value.begin(PIN_L0, PWMRANGE);
+    l1RValue.begin(PIN_L1_R, PWMRANGE);
+    l1GValue.begin(PIN_L1_G, PWMRANGE);
+    l1BValue.begin(PIN_L1_B, PWMRANGE);
 }
 
 void initDDNS()
@@ -188,52 +173,61 @@ void initDDNS()
     http.end();
 }
 
+void initRTC()
+{
+    if (!rtc.begin())
+    {
+        Serial.println("Couldn't find RTC");
+        while (true)
+        {
+        }
+    }
+}
+
 long longDate(String date)
 {
     String tmp = String(date);
     tmp.replace(":", "");
-    if(tmp.length() < 5){ // hh:mm
+    if (tmp.length() < 5)
+    {                // hh:mm
         tmp += "00"; // add :ss
     }
     return tmp.toInt();
 }
 
-void initTimeJob()
-{
-    timeClient = new NTPClient(ntpUDP, coreSettings.ntpHost, coreSettings.utcOffset);
-    timeClient->begin();
-}
-
 void checkNightMode()
 {
     //On
-    if(settings.night_mode_enabled == On){
-        if(!nightMode){
+    if (settings.night_mode_enabled == On)
+    {
+        if (!nightMode)
+        {
             nightMode = true;
             Serial.println("[settings] night mode = true");
-            
+
             reloadStates();
         }
         return;
     }
 
     //Off
-    if(settings.night_mode_enabled == Off){
-        if(nightMode){
+    if (settings.night_mode_enabled == Off)
+    {
+        if (nightMode)
+        {
             nightMode = false;
             Serial.println("[settings] night mode = false");
-            
+
             reloadStates();
         }
         return;
     }
 
-    if(!networkActionsInited){
-        return;
-    }
+    DateTime nowDate = rtc.now();
 
     //Auto
-    long now = longDate(timeClient->getFormattedTime());
+    int timezoneOffset = longDate(settings.timezone);
+    long now = nowDate.hour() * 10000 + nowDate.minute() * 100 + nowDate.second() + timezoneOffset;
     long startTime = longDate(settings.night_mode_start);
     long endTime = longDate(settings.night_mode_end);
     bool nightModeNow = false;
@@ -256,7 +250,7 @@ void checkNightMode()
         Serial.print(startTime);
         Serial.print(" endTime: ");
         Serial.println(endTime);
-        
+
         reloadStates();
     }
 }
@@ -273,7 +267,7 @@ void setup()
     reloadStates();
     initWiFi();
     initWebApp();
-    initTimeJob();
+    initRTC();
 }
 
 void saveStatesToSD()
@@ -285,22 +279,14 @@ void saveStatesToSD()
     }
 }
 
-int16_t t = 0;
+unsigned long lastTick = 0;
 
-void loop()
+void slowLoop()
 {
-    updateGPIO();
-
     if (wifiMulti.run() != WL_CONNECTED)
     {
         networkActionsInited = false;
-        if (t++ <= 0)
-        {
-            Serial.println("no WiFi...");
-            t = 1;
-        }
-        //delay(1000);
-        return;
+        Serial.println("no WiFi...");
     }
     else if (!networkActionsInited)
     {
@@ -312,8 +298,35 @@ void loop()
         networkActionsInited = true;
     }
 
-    webServer.handleClient();
-    timeClient->update();
     checkNightMode();
     saveStatesToSD();
+    DateTime now = rtc.now();
+
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    Serial.print(now.month(), DEC);
+    Serial.print('/');
+    Serial.print(now.day(), DEC);
+    Serial.print(" ");
+    Serial.print(now.hour(), DEC);
+    Serial.print(':');
+    Serial.print(now.minute(), DEC);
+    Serial.print(':');
+    Serial.print(now.second(), DEC);
+    Serial.println();
+}
+
+void loop()
+{
+    unsigned long milisNow = millis();
+
+    if (
+        ((milisNow - lastTick) > 500) ||
+        (lastTick > milisNow)) // overflow
+    {
+        lastTick = milisNow;
+        slowLoop();
+    }
+    updateGPIO();
+    webServer.handleClient();
 }

@@ -1,22 +1,24 @@
 #ifndef SmoothTransition_class_h
 #define SmoothTransition_class_h
 
-class SmoothTransition {
-    public:
-        SmoothTransition(int speed = 200, int defaultValue = 0);
-        ~SmoothTransition();
+#include <Arduino.h>
 
-        void setTargetValue(int targetValue);
-        
-        int getCurrentValue();
-        bool isFinished();
+class SmoothTransition
+{
+public:
+    void begin(uint8_t pin, int initValue = 0);
+    void setValue(int targetValue, int speed);
+    void update();
+    bool isFinished();
 
-    private:
-        int currentValue;
-        int speed;
-        int startValue;
-        int targetValue;
-        unsigned long transitionStarted;
+private:
+    uint8_t pin;
+    int currentValue;
+    int startValue;
+    int targetValue;
+    unsigned long transitionStartTime;
+    unsigned long transitionEndTime;
+    int getCurrentValue();
 };
 
 #endif

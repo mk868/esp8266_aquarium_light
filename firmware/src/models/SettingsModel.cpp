@@ -11,10 +11,11 @@ SettingsModel::~SettingsModel()
 void SettingsModel::toJson(JsonDocument &doc)
 {
     doc.clear();
-    
+
     doc["night_mode_enabled"] = (int)this->night_mode_enabled;
     doc["night_mode_start"] = this->night_mode_start;
     doc["night_mode_end"] = this->night_mode_end;
+    doc["timezone"] = this->timezone;
 };
 
 void SettingsModel::fromJson(JsonDocument &doc)
@@ -23,4 +24,5 @@ void SettingsModel::fromJson(JsonDocument &doc)
 
     strncpy(this->night_mode_start, doc["night_mode_start"], sizeof(this->night_mode_start));
     strncpy(this->night_mode_end, doc["night_mode_end"], sizeof(this->night_mode_end));
+    strncpy(this->timezone, doc["timezone"], sizeof(this->timezone));
 }

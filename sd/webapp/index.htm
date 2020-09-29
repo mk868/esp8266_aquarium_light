@@ -99,6 +99,13 @@
 					<label for="turn_off_nightMode">End night mode at:</label>
 					<input type="time" class="form-control" id="turn_off_nightMode" v-model="night_mode_end"/>
 				</div>
+
+				<div class="form-group">
+					<label for="timezone">Timezone:</label>
+					<select name="timezone" class="form-control" id="timezone" v-model="timezone">
+						<option v-for="n in 27" v-bind:value="(n-13) + ':00'">GMT {{ n-13 }}:00</option>
+					</select>
+				</div>
 				
 				<button type="submit" class="btn btn-primary" @click="settings_save">Save</button>
 			</div>

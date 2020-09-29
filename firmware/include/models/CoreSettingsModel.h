@@ -23,7 +23,6 @@ public:
 
     //TODO char array -> char*
     char ntpHost[64];
-    long utcOffset;
 
     char DDNSInitUrl[70];
 

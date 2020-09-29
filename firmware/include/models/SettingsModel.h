@@ -17,6 +17,7 @@ public:
 
     char night_mode_start[9];
     char night_mode_end[9];
+    char timezone[9];
     
     void toJson(JsonDocument &);
     void fromJson(JsonDocument &);

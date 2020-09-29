@@ -66,6 +66,7 @@ var app = new Vue({
 		night_mode_enabled: 0,
 		night_mode_start: '01:00',
 		night_mode_end: '02:00',
+		timezone: '0:00',
 		
 		sendingData: 0,
 		tab: 'day-mode'
@@ -142,7 +143,8 @@ var app = new Vue({
 			axios.post(API_SETTINGS, {
 					night_mode_enabled: this.night_mode_enabled,
 					night_mode_start: this.night_mode_start,
-					night_mode_end: this.night_mode_end
+					night_mode_end: this.night_mode_end,
+					timezone: this.timezone
 				})
 				.then(function (response) {
 					app.sendingData--;
@@ -201,7 +203,8 @@ axios.get(API_SETTINGS)
 		app.night_mode_enabled = res.data.night_mode_enabled;
 		var night_mode_start = res.data.night_mode_start;
 		var night_mode_end = res.data.night_mode_end;
-		
+		var timezone = res.data.timezone;
+
 		if(night_mode_start.indexOf(':') < 2){
 			night_mode_start = '0' + night_mode_start;
 		}
@@ -211,6 +214,7 @@ axios.get(API_SETTINGS)
 		
 		app.night_mode_start = night_mode_start;
 		app.night_mode_end = night_mode_end;
+		app.timezone = timezone;
 	})
 	.catch(function (error) {
 		console.error(error);
